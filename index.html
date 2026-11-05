@@ -202,6 +202,37 @@
   .hrow .sub { display: block; font-size: .85rem; color: var(--muted); }
   .hrow .rt { white-space: nowrap; }
   .empty-hist { color: var(--muted); padding: .8rem .25rem; }
+
+  .sidebtn { position: fixed; right: 0; top: 45%; transform: translateY(-50%); z-index: 6; writing-mode: vertical-rl; font: inherit; font-weight: 800; font-size: 1rem; padding: 1.1rem .65rem; padding-right: calc(.65rem + env(safe-area-inset-right, 0px)); border: 0; border-radius: .9rem 0 0 .9rem; background: var(--accent); color: #000; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.4); touch-action: manipulation; }
+  .sidebtn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  dialog.drawer { margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: min(92vw, 25rem); border-radius: 1.25rem 0 0 1.25rem; }
+  .drawer-body { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  .drawer fieldset { margin: 0 0 1.4rem; }
+  .drawer-foot { display: flex; gap: .5rem; }
+  .drawer-foot .small { flex: 1; }
+  .fnote { color: var(--muted); font-size: .85rem; line-height: 1.4; margin: 0; }
+  .stars { margin-top: .9rem; font-size: 1.3rem; }
+  .stars.none { font-size: .95rem; color: var(--muted); }
+  .addhist { width: 100%; margin-top: .75rem; }
+  .dnote { margin: .9rem 0 0; color: var(--muted); font-size: .85rem; }
+
+  .result.final { display: grid; grid-template-columns: 3.75rem minmax(0, 1fr); column-gap: 1rem; align-items: start; }
+  .rbody { min-width: 0; }
+  .starcol { display: flex; flex-direction: column; align-items: center; gap: .1rem; padding-top: .35rem; }
+  .starnum { font-size: 1.8rem; font-weight: 800; line-height: 1; margin-bottom: .3rem; }
+  .starcol .s { font-size: 1.15rem; line-height: 1.15; }
+  .starcol .s.off { opacity: .2; filter: grayscale(1); }
+  .starcap { font-size: .7rem; color: var(--muted); text-align: center; line-height: 1.2; margin-top: .3rem; }
+
+  .locs { position: relative; margin-top: .8rem; }
+  .locmenu { position: absolute; left: 0; right: 0; top: 100%; margin: .35rem 0 0; padding: .3rem; list-style: none; background: var(--bg); border: 2px solid var(--chip); border-radius: .8rem; max-height: 14rem; overflow-y: auto; z-index: 8; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  .locmenu[hidden] { display: none; }
+  .locmenu button { width: 100%; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; padding: .7rem .6rem; min-height: 2.75rem; border-radius: .5rem; cursor: pointer; }
+  .locmenu button:hover, .locmenu button[aria-selected=true] { background: var(--chip); }
+  .locmenu button:focus-visible { outline: 3px solid var(--accent); outline-offset: -2px; }
+  .filebtn { display: inline-flex; align-items: center; cursor: pointer; }
+  .import { margin-top: 1.25rem; display: grid; gap: .6rem; }
+  #catalogue { margin: 1rem 0 0; color: var(--ink); font-weight: 500; }
 </style>
 </head>
 <body class="intro">
@@ -221,10 +252,7 @@
     <button class="tool" id="soundBtn" type="button" aria-pressed="true">🔊 Sound on</button>
   </div>
 
-  <fieldset>
-    <legend>Limit to</legend>
-    <div class="chips" id="chips"></div>
-  </fieldset>
+  <button class="sidebtn" id="filterBtn" type="button">☰ Filters</button>
   <p class="count" id="count"></p>
 
   <details class="manage">
@@ -236,10 +264,18 @@
       <select class="wide" id="f-type" aria-label="Type of place"><option value="food">Food</option><option value="fast food">Fast food</option><option value="dessert">Dessert</option><option value="drinks">Drinks</option></select>
       <input class="wide" type="text" id="f-cat" list="cats" placeholder="Category (pick one or type a new one)" aria-label="Category" required maxlength="40">
       <datalist id="cats"></datalist>
+      <select class="wide" id="f-area" aria-label="Area"><option>Redmond</option><option>Bellevue</option></select>
+      <input class="wide" type="number" id="f-stars" min="1" max="5" step="0.1" placeholder="Overall stars 1-5 (optional)" aria-label="Overall stars">
       <input class="wide" type="number" id="f-price" inputmode="decimal" min="0" step="0.5" placeholder="Average item price in $ (optional)" aria-label="Average item price in dollars">
       <button class="small wide" type="submit">Add place</button>
       <p class="formmsg" id="formmsg" role="status"></p>
     </form>
+    <p class="note" id="catalogue"></p>
+    <div class="import">
+      <p class="note">To load every place: get the King County "Food Establishment Inspection Data" list (data.kingcounty.gov), filter City to Redmond and Bellevue, export it as CSV, then choose the file here.</p>
+      <label class="small ghost filebtn">Import CSV<input type="file" id="csvFile" accept=".csv,text/csv" hidden></label>
+      <p class="note" id="importMsg" role="status"></p>
+    </div>
     <input type="search" id="filter" placeholder="Search the list" aria-label="Search the list">
     <ul id="items"></ul>
     <div class="row">
@@ -249,6 +285,23 @@
   </details>
 </main>
 <p class="hint" id="hint" hidden>Tap to start</p>
+<dialog id="filterDlg" class="drawer" aria-labelledby="filterTitle">
+  <div class="dlg-head">
+    <h2 id="filterTitle">Filters</h2>
+    <form method="dialog"><button class="small ghost" type="submit">Close</button></form>
+  </div>
+  <div class="drawer-body">
+    <fieldset><legend>Location</legend><div class="chips" id="areaChips"></div></fieldset>
+    <fieldset><legend>Cuisine</legend><div class="chips" id="chips"></div></fieldset>
+    <fieldset><legend>Diet (show only places that offer it)</legend><div class="chips" id="dietChips"></div></fieldset>
+    <fieldset><legend>Avoid allergens (hide places that likely use them)</legend><div class="chips" id="avoidChips"></div></fieldset>
+    <p class="fnote">Dietary and allergen info is estimated from typical menus and is not verified. Menus change and kitchens share equipment, so always confirm with the restaurant, especially for allergies. Halal is marked only where an online listing said so. Places with no dietary data are hidden when an allergen is selected.</p>
+  </div>
+  <div class="drawer-foot">
+    <button class="small ghost" type="button" id="filtersClear">Clear filters</button>
+    <button class="small" type="button" id="filtersDone">Done</button>
+  </div>
+</dialog>
 <dialog id="historyDlg" aria-labelledby="historyTitle">
   <div class="dlg-head">
     <h2 id="historyTitle">History</h2>
@@ -364,6 +417,51 @@ function typeOf(name, cat) {
   if (DRINK.has(name)) return "drinks";
   return "food";
 }
+["Mod Pizza", "Burgermaster"].forEach(n => FAST.add(n));
+SWEET.add("Regent Bakery & Cafe");
+["5 Stones Coffee Co.", "Postdoc Brewing Company", "Mac & Jack's Brewery"].forEach(n => DRINK.add(n));
+// Added from public restaurant listings. Addresses are as listed; "Redmond, WA" / "Bellevue, WA" means no street address was confirmed.
+const BELLEVUE = new Set(["Din Tai Fung", "John Howie Steak", "Facing East Taiwanese Restaurant", "Top Gun Seafood Restaurant", "Seastar Restaurant & Raw Bar", "Daniel's Broiler", "Garlic Crush (Bellevue)", "Square Lotus", "Ascend Prime Steak & Sushi", "Water Grill (Bellevue)", "Cantinetta (Bellevue)", "Earls Kitchen + Bar (Bellevue)", "Whiskey by John Howie", "Burgermaster", "Itadaki Yakiniku", "Takai by Kashiba", "Fern Thai", "Monsoon Bellevue"]);
+DEFAULT_PLACES.push(
+  ["Pomegranate Bistro", "18005 NE 68th St, Ste A-150", "American bistro, brunch", "Breakfast & cafes"],
+  ["Bai Tong", "14804 NE 24th St", "Thai", "Thai"],
+  ["Bandido's Mexican Cafe", "Redmond, WA", "Mexican", "Mexican"],
+  ["The Third Place", "7844 Leary Way NE, Ste 110", "Korean, fried wings", "Korean"],
+  ["Blu Sardinia", "Redmond, WA", "Italian", "Italian & pizza"],
+  ["The Guilt Trip", "8440 160th Ave NE", "Indian, tapas", "Indian"],
+  ["Yummy Pho", "8920 161st Ave NE", "Vietnamese, sandwiches", "Vietnamese"],
+  ["Malay Satay Hut", "15230 NE 24th St", "Malaysian", "Malaysian"],
+  ["Regent Bakery & Cafe", "15159 NE 24th St", "Cantonese bakery", "Breakfast & cafes"],
+  ["5 Stones Coffee Co.", "8102 161st Ave NE", "Coffee", "Breakfast & cafes"],
+  ["Flying Saucer Pizza", "14712 NE 91st St, Ste 400", "Pizza", "Italian & pizza"],
+  ["Sip Thai Bistro", "16146 NE 87th St", "Thai", "Thai"],
+  ["Postdoc Brewing Company", "17625 NE 65th St, Ste 100", "Brewery", "Brewery"],
+  ["Mac & Jack's Brewery", "17825 NE 65th St, Ste B110", "Brewery", "Brewery"],
+  ["Mod Pizza", "8900 161st Ave NE", "Pizza, fast casual", "Italian & pizza"],
+  ["Hakka House", "Redmond, WA", "Chinese, Hakka", "Chinese"],
+  ["Izakaya Supa Banana", "Redmond, WA", "Japanese, izakaya", "Japanese"],
+  ["Obutekim", "Redmond, WA", "Korean", "Korean"],
+  ["A Ma Chicken Rice", "Redmond, WA", "Chinese, chicken rice", "Chinese"],
+  ["Shinya Shokudo", "Redmond, WA", "Japanese", "Japanese"],
+  ["Din Tai Fung", "700 Bellevue Way NE", "Taiwanese, dumplings", "Chinese"],
+  ["John Howie Steak", "11111 NE 8th St", "Steakhouse", "American"],
+  ["Facing East Taiwanese Restaurant", "1075 Bellevue Way NE", "Taiwanese", "Chinese"],
+  ["Top Gun Seafood Restaurant", "103 Bellevue Way NE, Ste 103", "Chinese, seafood", "Chinese"],
+  ["Seastar Restaurant & Raw Bar", "205 108th Ave NE, Ste 100", "Seafood, raw bar", "American"],
+  ["Daniel's Broiler", "Bellevue, WA", "Steakhouse", "American"],
+  ["Garlic Crush (Bellevue)", "102 Bellevue Way NE", "Mediterranean, Lebanese", "Mediterranean"],
+  ["Square Lotus", "12405 SE 38th St", "Chinese, Vietnamese, vegetarian", "Chinese"],
+  ["Ascend Prime Steak & Sushi", "450 108th Ave NE", "Steakhouse, sushi", "American"],
+  ["Water Grill (Bellevue)", "Bellevue, WA", "Seafood", "American"],
+  ["Cantinetta (Bellevue)", "Bellevue, WA", "Italian", "Italian & pizza"],
+  ["Earls Kitchen + Bar (Bellevue)", "Bellevue, WA", "American", "American"],
+  ["Whiskey by John Howie", "Bellevue, WA", "Steakhouse, bar", "American"],
+  ["Burgermaster", "Bellevue, WA", "American, burgers", "American"],
+  ["Itadaki Yakiniku", "Bellevue, WA", "Japanese, yakiniku", "Japanese"],
+  ["Takai by Kashiba", "Bellevue, WA", "Japanese, sushi", "Japanese"],
+  ["Fern Thai", "Bellevue, WA", "Thai", "Thai"],
+  ["Monsoon Bellevue", "Bellevue, WA", "Vietnamese", "Vietnamese"]
+);
 DEFAULT_PLACES.forEach(p => p.push(typeOf(p[0], p[3])));
 
 // Rough average price of one item (a dish, plate, drink or scoop), in dollars.
@@ -388,15 +486,61 @@ const PRICES = {
   "Cold Stone Creamery": 9, "Molly Moon's": 7, "Midnight Cookie Co.": 5, "Pinkabella Cupcakes": 5,
   "FrogLegs": 7, "Sharetea": 7, "Top Pot Doughnuts": 4
 };
+Object.assign(PRICES, {
+  "Pomegranate Bistro": 18, "Bai Tong": 16, "Bandido's Mexican Cafe": 14, "The Third Place": 18, "Blu Sardinia": 24, "The Guilt Trip": 18,
+  "Yummy Pho": 13, "Malay Satay Hut": 17, "Regent Bakery & Cafe": 8, "5 Stones Coffee Co.": 6, "Flying Saucer Pizza": 20, "Sip Thai Bistro": 17,
+  "Postdoc Brewing Company": 8, "Mac & Jack's Brewery": 8, "Mod Pizza": 10, "Hakka House": 16, "Izakaya Supa Banana": 16, "Obutekim": 20,
+  "A Ma Chicken Rice": 14, "Shinya Shokudo": 16, "Din Tai Fung": 18, "John Howie Steak": 60, "Facing East Taiwanese Restaurant": 18,
+  "Top Gun Seafood Restaurant": 20, "Seastar Restaurant & Raw Bar": 42, "Daniel's Broiler": 55, "Garlic Crush (Bellevue)": 14, "Square Lotus": 17,
+  "Ascend Prime Steak & Sushi": 55, "Water Grill (Bellevue)": 45, "Cantinetta (Bellevue)": 28, "Earls Kitchen + Bar (Bellevue)": 22,
+  "Whiskey by John Howie": 30, "Burgermaster": 11, "Itadaki Yakiniku": 32, "Takai by Kashiba": 45
+});
 DEFAULT_PLACES.forEach(p => p.push(PRICES[p[0]] ?? null));
+
+// Overall star ratings, only where a public listing showed one (delivery-app ratings). Others are blank until filled in.
+const STARS = { "Kanishka": 4.5, "Shawarma Time": 4.4, "Flying Saucer Pizza": 4.6, "Sip Thai Bistro": 4.6, "Postdoc Brewing Company": 4.7,
+  "Mac & Jack's Brewery": 4.8, "5 Stones Coffee Co.": 4.6, "Mercurys Coffee": 4.6, "Kizuki Ramen": 4.6, "Matt's Rotisserie & Oyster Lounge": 4.6,
+  "Fuji Steakhouse": 4.5, "Din Tai Fung": 4.5, "Monsoon Bellevue": 4.3 };
+DEFAULT_PLACES.forEach(p => p.push(BELLEVUE.has(p[0]) ? "Bellevue" : "Redmond", STARS[p[0]] ?? null));
+
+// Estimated dietary data from typical menus (not verified). Allergen flags are deliberately broad.
+const CAT_ALLERGENS = {
+  "Japanese": "soy wheat fish shellfish eggs sesame", "Chinese": "soy wheat eggs sesame shellfish peanuts",
+  "Korean": "soy wheat eggs sesame fish shellfish", "Indian": "milk wheat treenuts peanuts sesame",
+  "Mexican": "milk wheat fish shellfish", "Thai": "peanuts treenuts soy wheat eggs fish shellfish",
+  "Mediterranean": "milk wheat sesame treenuts", "American": "wheat milk eggs soy sesame",
+  "Italian & pizza": "wheat milk eggs", "Breakfast & cafes": "wheat milk eggs treenuts soy",
+  "Dessert": "milk wheat eggs treenuts peanuts soy"
+};
+const EXTRA_ALLERGENS = { "Five Guys": "peanuts", "Fuji Steakhouse": "milk", "Matt's Rotisserie & Oyster Lounge": "fish shellfish milk",
+  "BJ's Restaurant & Brewhouse": "fish shellfish treenuts peanuts", "Red Robin": "fish shellfish", "Panera Bread": "treenuts", "Jersey Mike's": "fish" };
+const NOT_VEG = new Set(["#K-Street KBBQ", "Matt's Rotisserie & Oyster Lounge", "Kizuki Ramen", "Kobuta & Ookami", "Fuji Steakhouse"]);
+const VEGAN_CATS = new Set(["Indian", "Thai", "Mediterranean", "Chinese", "Mexican", "Japanese", "Korean"]);
+const SEAFOOD = new Set(["Oto Sushi", "Marinepolis Sushi Land", "Musashi's", "Noburu Ramen & Sushi", "Just Poké", "Fuji Steakhouse", "Matt's Rotisserie & Oyster Lounge"]);
+const HALAL = new Set(["Kanishka", "Qamaria Coffee", "Shawarma Time", "The Guilt Trip"]);
+Object.assign(CAT_ALLERGENS, { "Vietnamese": "soy wheat fish shellfish peanuts sesame eggs", "Malaysian": "soy wheat fish shellfish peanuts eggs sesame", "Brewery": "wheat" });
+["Vietnamese", "Malaysian"].forEach(c => VEGAN_CATS.add(c));
+["John Howie Steak", "Daniel's Broiler", "Itadaki Yakiniku"].forEach(n => NOT_VEG.add(n));
+["Top Gun Seafood Restaurant", "Seastar Restaurant & Raw Bar", "Water Grill (Bellevue)", "Daniel's Broiler", "Ascend Prime Steak & Sushi", "Takai by Kashiba"].forEach(n => SEAFOOD.add(n));
+["John Howie Steak", "Daniel's Broiler", "Seastar Restaurant & Raw Bar", "Water Grill (Bellevue)", "Ascend Prime Steak & Sushi", "Whiskey by John Howie"].forEach(n => { EXTRA_ALLERGENS[n] = "fish shellfish milk"; });   // per Zabihah / delivery-app listings
+function dietOf(p) {
+  const s = new Set(), cat = p[3], known = cat in CAT_ALLERGENS;
+  if (known) CAT_ALLERGENS[cat].split(" ").forEach(a => s.add(a));
+  (EXTRA_ALLERGENS[p[0]] || "").split(" ").filter(Boolean).forEach(a => s.add(a));
+  const veg = known && !NOT_VEG.has(p[0]);
+  if (veg) { s.add("vegetarian"); if (VEGAN_CATS.has(cat)) s.add("vegan"); }
+  if (veg || SEAFOOD.has(p[0])) s.add("pescatarian");
+  if (HALAL.has(p[0])) s.add("halal");
+  return { known, s };
+}
 let type = "food";
 
 const KEY = "redmond-eats-list-v1";
 let places = DEFAULT_PLACES.map(p => p.slice());
 try {
   const saved = JSON.parse(localStorage.getItem(KEY));
-  if (Array.isArray(saved) && saved.every(p => Array.isArray(p) && (p.length >= 4 && p.length <= 6) && p.slice(0, 4).every(x => typeof x === "string"))) {
-    places = saved.map(p => [p[0], p[1], p[2], p[3], TYPES.some(t => t.id === p[4]) ? p[4] : typeOf(p[0], p[3]), typeof p[5] === "number" && p[5] > 0 ? p[5] : (PRICES[p[0]] ?? null)]);
+  if (Array.isArray(saved) && saved.every(p => Array.isArray(p) && (p.length >= 4 && p.length <= 8) && p.slice(0, 4).every(x => typeof x === "string"))) {
+    places = saved.map(p => [p[0], p[1], p[2], p[3], TYPES.some(t => t.id === p[4]) ? p[4] : typeOf(p[0], p[3]), typeof p[5] === "number" && p[5] > 0 ? p[5] : (PRICES[p[0]] ?? null), typeof p[6] === "string" ? p[6] : "Redmond", typeof p[7] === "number" && p[7] > 0 ? p[7] : (STARS[p[0]] ?? null)]);
   }
 } catch (e) {}
 function save() { try { localStorage.setItem(KEY, JSON.stringify(places)); } catch (e) {} }
@@ -484,22 +628,145 @@ function renderChips() {
     o.value = cat;
     dl.appendChild(o);
   });
+  renderAreaChips();
   updateCount();
 }
 
-function pool() {
-  const on = [...chipsEl.querySelectorAll("input:checked")].map(i => i.value);
-  return places.filter(p => p[4] === type && on.includes(p[3]));
+const AREAS = ["Redmond", "Bellevue"];
+const DIET_OPTS = [["vegetarian", "Vegetarian"], ["pescatarian", "Pescatarian"], ["vegan", "Vegan"], ["halal", "Halal"]];
+const ALLERGEN_OPTS = [["milk", "Milk / dairy"], ["eggs", "Eggs"], ["fish", "Fish"], ["shellfish", "Shellfish"], ["treenuts", "Tree nuts"],
+  ["peanuts", "Peanuts"], ["wheat", "Wheat / gluten"], ["soy", "Soy"], ["sesame", "Sesame"]];
+const FKEY = "redmond-eats-diet-v1";
+let savedF = { diet: [], avoid: [] };
+try { const f = JSON.parse(localStorage.getItem(FKEY)); if (f && Array.isArray(f.diet) && Array.isArray(f.avoid)) savedF = f; } catch (e) {}
+const areaEl = document.getElementById("areaChips");
+const dietEl = document.getElementById("dietChips");
+const avoidEl = document.getElementById("avoidChips");
+const checkedIn = el => [...el.querySelectorAll("input:checked")].map(i => i.value);
+function addChip(el, value, label, checked, onChange) {
+  const l = document.createElement("label");
+  l.className = "chip";
+  l.innerHTML = '<input type="checkbox"><span></span>';
+  const i = l.querySelector("input");
+  i.value = value;
+  i.checked = checked;
+  l.querySelector("span").textContent = label;
+  i.addEventListener("change", onChange);
+  el.appendChild(l);
 }
+function onFilterChange() {
+  try { localStorage.setItem(FKEY, JSON.stringify({ diet: checkedIn(dietEl), avoid: checkedIn(avoidEl) })); } catch (e) {}
+  updateCount();
+}
+function renderAreaChips() {
+  const off = new Set([...areaEl.querySelectorAll("input:not(:checked)")].map(i => i.value));
+  areaEl.textContent = "";
+  [...new Set([...AREAS, ...places.map(p => p[6])])].forEach(a => addChip(areaEl, a, a, !off.has(a), updateCount));
+}
+DIET_OPTS.forEach(([v, l]) => addChip(dietEl, v, l, savedF.diet.includes(v), onFilterChange));
+ALLERGEN_OPTS.forEach(([v, l]) => addChip(avoidEl, v, l, savedF.avoid.includes(v), onFilterChange));
+
+function pool() {
+  const cats = checkedIn(chipsEl), areas = checkedIn(areaEl), need = checkedIn(dietEl), avoid = checkedIn(avoidEl);
+  return places.filter(p => {
+    if (p[4] !== type || !cats.includes(p[3]) || !areas.includes(p[6])) return false;
+    if (!need.length && !avoid.length) return true;
+    const d = dietOf(p);
+    return need.every(x => d.s.has(x)) && (!avoid.length || (d.known && !avoid.some(x => d.s.has(x))));
+  });
+}
+function dietActive() { return checkedIn(dietEl).length + checkedIn(avoidEl).length > 0; }
 
 function updateCount() {
   const n = pool().length;
-  countEl.textContent = n + (n === 1 ? " place" : " places") + " in the running";
+  countEl.textContent = n + (n === 1 ? " place" : " places") + " in the running" + (n === 0 ? ". Try loosening a filter." : "");
   pickBtn.disabled = n === 0;
+  const k = checkedIn(dietEl).length + checkedIn(avoidEl).length +
+    (chipsEl.querySelector("input:not(:checked)") ? 1 : 0) + (areaEl.querySelector("input:not(:checked)") ? 1 : 0);
+  document.getElementById("filterBtn").textContent = "\u2630 Filters" + (k ? " (" + k + ")" : "");
+}
+
+function starsEl(place) {
+  const d = document.createElement("div");
+  d.className = "starcol";
+  const st = place[7];
+  const has = typeof st === "number" && st > 0;
+  const n = has ? Math.max(1, Math.min(5, Math.round(st))) : 0;
+  d.setAttribute("role", "img");
+  d.setAttribute("aria-label", has ? st.toFixed(1) + " out of 5 stars" : "No star rating yet");
+  const num = document.createElement("div");
+  num.className = "starnum";
+  num.textContent = has ? st.toFixed(1) : "\u2013";
+  d.appendChild(num);
+  for (let i = 5; i >= 1; i--) {
+    const x = document.createElement("span");
+    x.className = "s" + (i > n ? " off" : "");
+    x.textContent = "\u2B50";
+    d.appendChild(x);
+  }
+  if (!has) {
+    const c = document.createElement("div");
+    c.className = "starcap";
+    c.textContent = "No rating yet";
+    d.appendChild(c);
+  }
+  return d;
+}
+function baseName(n) { return n.replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase(); }
+function locEl(place) {
+  const sibs = places.filter(x => baseName(x[0]) === baseName(place[0]));
+  if (sibs.length < 2) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "locs";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "small ghost";
+  btn.textContent = "\u{1F4CD} " + sibs.length + " locations \u25BE";
+  btn.setAttribute("aria-haspopup", "listbox");
+  btn.setAttribute("aria-expanded", "false");
+  const menu = document.createElement("ul");
+  menu.className = "locmenu";
+  menu.setAttribute("role", "listbox");
+  menu.hidden = true;
+  sibs.forEach(x => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", "option");
+    b.setAttribute("aria-selected", String(x === place));
+    b.textContent = (x === place ? "\u2713 " : "") + x[1] + " \u2022 " + x[6];
+    b.addEventListener("click", () => { last = x; show(x, false); });
+    li.appendChild(b);
+    menu.appendChild(li);
+  });
+  btn.addEventListener("click", () => {
+    menu.hidden = !menu.hidden;
+    btn.setAttribute("aria-expanded", String(!menu.hidden));
+  });
+  wrap.append(btn, menu);
+  return wrap;
+}
+document.addEventListener("click", e => {
+  document.querySelectorAll(".locmenu:not([hidden])").forEach(m => {
+    if (!m.parentElement.contains(e.target)) {
+      m.hidden = true;
+      m.parentElement.querySelector("button").setAttribute("aria-expanded", "false");
+    }
+  });
+});
+
+function histEl(place) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "small ghost addhist";
+  b.textContent = "Add to history";
+  b.addEventListener("click", () => { recordVisit(place); b.textContent = "Added to history \u2713"; b.disabled = true; });
+  return b;
 }
 
 function show(place, spinning) {
   resultEl.textContent = "";
+  resultEl.className = "result";
   const h = document.createElement("h2");
   h.className = "name" + (spinning ? " spinning" : "");
   h.textContent = place[0];
@@ -519,7 +786,20 @@ function show(place, spinning) {
   m.rel = "noopener";
   const q = place[0] + " " + (place[1].startsWith("Redmond") ? "Redmond, WA" : place[1] + ", Redmond, WA");
   m.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
-  resultEl.append(c, a, priceEl(place), rateEl(place), m);
+  const lo = locEl(place);
+  resultEl.append(c, a, ...(lo ? [lo] : []), priceEl(place), rateEl(place), histEl(place));
+  if (dietActive()) {
+    const n = document.createElement("p");
+    n.className = "dnote";
+    n.textContent = "Matched using estimated menu info. Please confirm with the restaurant, especially for allergies.";
+    resultEl.appendChild(n);
+  }
+  resultEl.appendChild(m);
+  const body = document.createElement("div");
+  body.className = "rbody";
+  while (resultEl.firstChild) body.appendChild(resultEl.firstChild);
+  resultEl.className = "result final";
+  resultEl.append(starsEl(place), body);
 }
 
 function priceEl(place) {
@@ -640,7 +920,7 @@ pickBtn.addEventListener("click", () => {
   if (!final) return;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   last = final;
-  if (reduce) { show(final, false); dingSound(); recordVisit(final); return; }
+  if (reduce) { show(final, false); dingSound(); return; }
 
   busy = true;
   pickBtn.disabled = true;
@@ -657,7 +937,6 @@ pickBtn.addEventListener("click", () => {
     } else {
       show(final, false);
       dingSound();
-      recordVisit(final);
       busy = false;
       pickBtn.disabled = false;
       setTypesDisabled(false);
@@ -671,7 +950,14 @@ const itemsEl = document.getElementById("items");
 const filterEl = document.getElementById("filter");
 const msgEl = document.getElementById("formmsg");
 
+function updateCatalogue() {
+  const c = {};
+  places.forEach(p => { c[p[6]] = (c[p[6]] || 0) + 1; });
+  const parts = Object.keys(c).sort().map(k => k + " " + c[k]);
+  document.getElementById("catalogue").textContent = "In the catalogue: " + parts.join(" \u2022 ") + " \u2022 total " + places.length;
+}
 function renderItems() {
+  updateCatalogue();
   const q = filterEl.value.trim().toLowerCase();
   itemsEl.textContent = "";
   places.forEach(p => {
@@ -722,7 +1008,8 @@ document.getElementById("add").addEventListener("submit", e => {
   }
   const t = document.getElementById("f-type").value;
   const priceRaw = parseFloat(document.getElementById("f-price").value);
-  places.push([name, addr, cuisine, cat, t, priceRaw > 0 ? priceRaw : null]);
+  const starsRaw = parseFloat(document.getElementById("f-stars").value);
+  places.push([name, addr, cuisine, cat, t, priceRaw > 0 ? priceRaw : null, document.getElementById("f-area").value, starsRaw >= 1 && starsRaw <= 5 ? starsRaw : null]);
   save();
   e.target.reset();
   document.getElementById("f-type").value = type;
@@ -760,6 +1047,7 @@ TYPES.forEach(t => {
     last = null;
     pickBtn.textContent = "Pick a place";
     resultEl.textContent = "";
+  resultEl.className = "result";
     const p = document.createElement("p");
     p.className = "empty";
     p.textContent = "Press the button to pick a place.";
@@ -803,7 +1091,7 @@ function renderHistory() {
   if (!history.length) {
     const li = document.createElement("li");
     li.className = "empty-hist";
-    li.textContent = "Nothing yet. Places you pick show up here.";
+    li.textContent = "Nothing yet. Tap \"Add to history\" on a place to save it here.";
     historyList.appendChild(li);
     return;
   }
@@ -868,6 +1156,104 @@ soundBtn.addEventListener("click", () => {
 });
 paintSound();
 updateHistoryBtn();
+
+// ---- CSV import (King County food establishment list) ----
+function splitCsv(line) {
+  const out = [];
+  let cur = "", q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+function titleCase(t) {
+  return t.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase())
+    .replace(/\b(Ne|Nw|Se|Sw)\b/g, m => m.toUpperCase()).replace(/(\d)(St|Nd|Rd|Th)\b/g, (m, d, x) => d + x.toLowerCase())
+    .replace(/'S\b/g, "'s");
+}
+function guessType(n) {
+  if (/coffee|espresso|\btea\b|boba|bubble|brew|roast|juice|smoothie|starbucks/i.test(n)) return "drinks";
+  if (/bakery|donut|doughnut|ice cream|gelato|cookie|cupcake|dessert|creamery|yogurt|candy|chocolate|cake/i.test(n)) return "dessert";
+  if (/mcdonald|burger king|wendy|taco bell|subway|kfc|popeyes|chick-fil|jack in the box|domino|papa john|little caesars|panda express|chipotle|qdoba|five guys|jersey mike|taco time|carl's jr|sonic drive/i.test(n)) return "fast food";
+  return "food";
+}
+async function importCsv(file) {
+  const msg = document.getElementById("importMsg");
+  msg.textContent = "Reading " + file.name + "...";
+  const dec = new TextDecoder();
+  const reader = file.stream().getReader();
+  let buf = "", idx = null, scanned = 0, dupes = 0;
+  const seen = new Set(places.map(p => (p[0] + "|" + p[1]).toLowerCase()));
+  const names = new Set(places.map(p => p[0].toLowerCase()));
+  const added = [];
+  const col = (h, ...opts) => { for (const o of opts) { const i = h.indexOf(o); if (i >= 0) return i; } return -1; };
+  function row(line) {
+    if (!line.trim()) return;
+    const f = splitCsv(line);
+    if (!idx) {
+      const h = f.map(x => x.trim().toLowerCase());
+      idx = { name: col(h, "name", "business name", "inspection business name", "program identifier"), addr: col(h, "address"), city: col(h, "city"),
+        id: col(h, "business_id", "business id"), closed: col(h, "inspection closed business") };
+      return;
+    }
+    scanned++;
+    if (idx.name < 0 || idx.city < 0) return;
+    const city = (f[idx.city] || "").trim().toLowerCase();
+    if (city !== "redmond" && city !== "bellevue") return;
+    if (idx.closed >= 0 && /^true$/i.test((f[idx.closed] || "").trim())) return;
+    let name = titleCase((f[idx.name] || "").trim());
+    const addr = titleCase((f[idx.addr] || "").trim()) || (city === "redmond" ? "Redmond, WA" : "Bellevue, WA");
+    if (!name) return;
+    const key = (idx.id >= 0 && f[idx.id] ? "id:" + f[idx.id] : (name + "|" + addr).toLowerCase());
+    if (seen.has(key) || seen.has((name + "|" + addr).toLowerCase())) { dupes++; return; }
+    seen.add(key);
+    seen.add((name + "|" + addr).toLowerCase());
+    if (names.has(name.toLowerCase())) name = name + " (" + addr + ")";
+    names.add(name.toLowerCase());
+    added.push([name, addr, "Restaurant", "Other", guessType(name), null, city === "redmond" ? "Redmond" : "Bellevue", null]);
+  }
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split(/\r?\n/);
+    buf = lines.pop();
+    lines.forEach(row);
+    if (scanned % 20000 < lines.length) { msg.textContent = "Reading... " + scanned.toLocaleString() + " rows"; await new Promise(r => setTimeout(r, 0)); }
+  }
+  if (buf) row(buf);
+  if (!idx || idx.name < 0 || idx.city < 0) { msg.textContent = "Couldn't find Name and City columns in that file."; return; }
+  places.push(...added);
+  save();
+  renderChips();
+  renderItems();
+  const r = added.filter(x => x[6] === "Redmond").length;
+  msg.textContent = "Added " + added.length + " places (Redmond " + r + ", Bellevue " + (added.length - r) + "). Skipped " + dupes + " duplicates.";
+}
+document.getElementById("csvFile").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (f) importCsv(f).catch(() => { document.getElementById("importMsg").textContent = "Something went wrong reading that file."; });
+  e.target.value = "";
+});
+
+// ---- Filter drawer ----
+const filterDlg = document.getElementById("filterDlg");
+document.getElementById("filterBtn").addEventListener("click", () => {
+  if (filterDlg.showModal) filterDlg.showModal(); else filterDlg.setAttribute("open", "");
+});
+filterDlg.addEventListener("click", e => { if (e.target === filterDlg) filterDlg.close(); });
+document.getElementById("filtersDone").addEventListener("click", () => filterDlg.close());
+document.getElementById("filtersClear").addEventListener("click", () => {
+  filterDlg.querySelectorAll("input[type=checkbox]").forEach(i => { i.checked = !!i.closest("#areaChips, #chips"); });
+  onFilterChange();
+});
 
 renderChips();
 renderItems();
