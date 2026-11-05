@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Food hub">
+<title>Food hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --ink: #f5f5f5;
+    --muted: #a3a3a3;
+    --accent: #ff7a00;
+    --accent-ink: #0a0a0a;
+    --chip: #262626;
+    --chip-on: #ff7a00;
+    --chip-on-ink: #0a0a0a;
+    --card: #171717;
+    --font: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) calc(2rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px));
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  main { width: 100%; max-width: 40rem; }
+  h1 { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; font-weight: 700; font-size: clamp(2.2rem, 11vw, 3.25rem); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 1.5rem; color: #fff; }
+  h1 .hub { display: inline-block; background: var(--accent); color: #000; padding: .02em .3em .08em; border-radius: .3em; }
+
+  .result {
+    background: var(--card);
+    border-radius: 1.25rem;
+    padding: 2rem 1.5rem 1.75rem;
+    min-height: 15rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .name {
+    font-weight: 800;
+    font-size: clamp(2.25rem, 9vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .name.spinning { color: var(--muted); }
+  .cuisine { margin: 1rem 0 0; font-size: 1.2rem; color: var(--accent); font-weight: 500; }
+  .address { margin: .35rem 0 0; font-size: 1.05rem; color: var(--muted); }
+  .map { display: inline-block; margin-top: 1rem; padding: .6rem 0; color: var(--ink); font-weight: 500; }
+  .map:hover { color: var(--accent); }
+  .empty { margin: 0; font-size: 1.3rem; color: var(--muted); }
+
+  button.pick {
+    position: sticky;
+    bottom: calc(.75rem + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    min-height: 3.75rem;
+    touch-action: manipulation;
+    margin-top: 1.25rem;
+    width: 100%;
+    font: inherit;
+    font-weight: 800;
+    font-size: 1.35rem;
+    padding: 1.1rem;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    cursor: pointer;
+  }
+  button.pick:active { transform: scale(.99); }
+  button.pick:disabled { opacity: .5; cursor: not-allowed; }
+
+  fieldset { border: 0; padding: 0; margin: 2rem 0 0; }
+  legend { font-weight: 500; color: var(--muted); padding: 0; margin-bottom: .6rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .chip { position: relative; }
+  .chip input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .chip span {
+    display: block;
+    padding: .7rem 1.05rem;
+    border-radius: 999px;
+    background: var(--chip);
+    font-size: .95rem;
+  }
+  .chip input:checked + span { background: var(--chip-on); color: var(--chip-on-ink); }
+  .chip input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.pick:focus-visible, .map:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .count { margin-top: 1rem; color: var(--muted); font-size: .9rem; }
+
+  .manage { margin-top: 2.25rem; }
+  .manage summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+  .manage summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .manage[open] summary { margin-bottom: 1rem; }
+  #add { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  #add .wide { grid-column: 1 / -1; }
+  .manage input[type=text], .manage input[type=search] {
+    font: inherit; font-size: 1rem; width: 100%; min-height: 2.9rem;
+    padding: .6rem .75rem; border-radius: .6rem;
+    border: 2px solid var(--chip); background: var(--card); color: var(--ink);
+  }
+  .manage input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  button.small {
+    font: inherit; font-weight: 800; font-size: 1rem; cursor: pointer; min-height: 2.9rem; touch-action: manipulation;
+    padding: .6rem 1rem; border: 0; border-radius: .6rem;
+    background: var(--chip-on); color: var(--chip-on-ink);
+  }
+  button.small.ghost { background: var(--chip); color: var(--ink); font-weight: 500; }
+  button.small:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #filter { margin-top: 1.25rem; }
+  #items { list-style: none; margin: .75rem 0 0; padding: 0; max-height: min(24rem, 55vh); overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: .75rem; background: var(--card); }
+  #items li { display: flex; align-items: center; gap: .75rem; padding: .55rem .75rem; border-bottom: 1px solid var(--chip); }
+  #items li:last-child { border-bottom: 0; }
+  #items .info { flex: 1; min-width: 0; }
+  #items .nm { display: block; font-weight: 500; overflow-wrap: anywhere; }
+  #items .sub { display: block; font-size: .85rem; color: var(--muted); overflow-wrap: anywhere; }
+  #items button { font: inherit; font-size: .9rem; cursor: pointer; min-height: 2.75rem; padding: .35rem .9rem; border-radius: 999px; border: 2px solid var(--chip); background: transparent; color: var(--ink); }
+  #items button:hover { border-color: var(--accent); color: var(--accent); }
+  #items button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .manage .row { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+  .manage .note { color: var(--muted); font-size: .85rem; margin: 0; }
+  .formmsg { grid-column: 1 / -1; margin: 0; font-size: .9rem; color: var(--accent); min-height: 1.2em; }
+  @media (max-width: 30rem) { #add { grid-template-columns: 1fr; } }
+
+  .types { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin-bottom: 1rem; }
+  .seg { position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .seg input:disabled { cursor: default; }
+  .seg span { display: block; text-align: center; padding: .9rem .25rem; border-radius: .9rem; background: var(--chip); font-weight: 500; font-size: .95rem; }
+  .seg input:checked + span { background: var(--chip-on); color: var(--chip-on-ink); font-weight: 800; }
+  .seg input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .manage select {
+    font: inherit; font-size: 1rem; width: 100%; min-height: 2.9rem;
+    padding: .6rem .75rem; border-radius: .6rem;
+    border: 2px solid var(--chip); background: var(--card); color: var(--ink);
+  }
+  .manage select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  @media (max-width: 22rem) { .seg span { font-size: .85rem; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Food <span class="hub">hub</span></h1>
+
+  <div class="types" id="types" role="radiogroup" aria-label="Type of place"></div>
+
+  <section class="result" aria-live="polite" id="result">
+    <p class="empty">Press the button to pick a place.</p>
+  </section>
+
+  <button class="pick" id="pick" type="button">Pick a place</button>
+
+  <fieldset>
+    <legend>Limit to</legend>
+    <div class="chips" id="chips"></div>
+  </fieldset>
+  <p class="count" id="count"></p>
+
+  <details class="manage">
+    <summary>Edit the list</summary>
+    <form id="add" autocomplete="off">
+      <input class="wide" type="text" id="f-name" placeholder="Name" aria-label="Name" required maxlength="80">
+      <input type="text" id="f-addr" placeholder="Address (optional)" aria-label="Address" maxlength="120">
+      <input type="text" id="f-cuisine" placeholder="Cuisine (optional)" aria-label="Cuisine" maxlength="80">
+      <select class="wide" id="f-type" aria-label="Type of place"><option value="food">Food</option><option value="fast food">Fast food</option><option value="dessert">Dessert</option><option value="drinks">Drinks</option></select>
+      <input class="wide" type="text" id="f-cat" list="cats" placeholder="Category (pick one or type a new one)" aria-label="Category" required maxlength="40">
+      <datalist id="cats"></datalist>
+      <button class="small wide" type="submit">Add place</button>
+      <p class="formmsg" id="formmsg" role="status"></p>
+    </form>
+    <input type="search" id="filter" placeholder="Search the list" aria-label="Search the list">
+    <ul id="items"></ul>
+    <div class="row">
+      <button class="small ghost" type="button" id="reset">Reset to original list</button>
+      <p class="note">Changes are saved in this browser only.</p>
+    </div>
+  </details>
+</main>
+
+<script>
+// [name, address, cuisine, category]
+const DEFAULT_PLACES = [
+  // Japanese / Sushi / Ramen
+  ["Oto Sushi", "8105 161st Ave NE", "Japanese, sushi", "Japanese"],
+  ["Marinepolis Sushi Land", "8910 161st Ave NE", "Japanese, sushi", "Japanese"],
+  ["Musashi's", "7405 168th Ave NE, Ste 150", "Japanese, sushi", "Japanese"],
+  ["Kobuta & Ookami", "17026 Avondale Way, Ste A", "Japanese, katsu", "Japanese"],
+  ["Noburu Ramen & Sushi", "8900 161st Ave NE, Ste 170", "Japanese, ramen, sushi", "Japanese"],
+  ["Kizuki Ramen", "7325 166th Ave NE", "Japanese, ramen", "Japanese"],
+  ["Fuji Steakhouse", "16564 NE 74th St", "Japanese, hibachi", "Japanese"],
+  ["Just Poké", "7525 166th Ave NE", "Hawaiian, poke", "Japanese"],
+
+  // Chinese / Taiwanese / Dumplings
+  ["Dough Zone", "7625 170th Ave NE", "Chinese, dumplings", "Chinese"],
+  ["Supreme Dumplings", "7329 166th Ave NE", "Chinese, dumplings", "Chinese"],
+  ["Dong Ting Chun", "7525 166th Ave NE", "Chinese, Hunan", "Chinese"],
+  ["Tian Tian Noodle", "Redmond, WA 98052", "Taiwanese, noodles", "Chinese"],
+
+  // Korean
+  ["#K-Street KBBQ", "7525 166th Ave NE", "Korean BBQ", "Korean"],
+  ["Stone Korean Restaurant", "Redmond, WA 98052", "Korean", "Korean"],
+  ["Seoul Bowl", "Redmond, WA 98052", "Korean, rice bowls", "Korean"],
+
+  // Indian / South Asian
+  ["Kanishka", "16651 Redmond Way", "Indian", "Indian"],
+  ["Jashn", "7525 166th Ave NE", "Indian", "Indian"],
+  ["Bommarillu Biryani", "Redmond, WA 98052", "Indian, biryani", "Indian"],
+  ["Southern Spice", "Redmond, WA 98052", "South Indian", "Indian"],
+  ["Chaat N Roll", "Redmond, WA 98052", "Indian street food", "Indian"],
+
+  // Mexican / Latin American
+  ["Taqueria El Gallo", "16720 Redmond Way", "Mexican", "Mexican"],
+  ["El Toreador", "7845 Leary Way NE", "Mexican", "Mexican"],
+  ["Ooba Tooba", "Redmond, WA 98052", "Mexican", "Mexican"],
+  ["Agave Cocina & Cantina", "Redmond, WA 98052", "Mexican", "Mexican"],
+  ["The Matador", "7824 Leary Way NE", "Mexican", "Mexican"],
+  ["Taco Time", "Redmond, WA 98052", "Mexican fast food", "Mexican"],
+  ["QDOBA", "Redmond, WA 98052", "Mexican fast casual", "Mexican"],
+  ["Pecado Bueno", "Redmond, WA 98052", "Mexican", "Mexican"],
+
+  // Thai
+  ["Thai Ginger", "7525 166th Ave NE", "Thai", "Thai"],
+  ["Bangkok Basil", "Redmond, WA 98052", "Thai", "Thai"],
+
+  // Mediterranean / Middle Eastern
+  ["Shawarma Time", "7525 166th Ave NE", "Mediterranean, shawarma", "Mediterranean"],
+  ["Garlic Crush", "Redmond, WA 98052", "Mediterranean", "Mediterranean"],
+  ["Sahara Mediterranean Kitchen", "Redmond Way, Redmond, WA", "Mediterranean", "Mediterranean"],
+
+  // American / Burgers / Sandwiches
+  ["Tipsy Cow", "16325 Cleveland St", "American, burgers", "American"],
+  ["Red Robin", "Redmond, WA 98052", "American, burgers", "American"],
+  ["Five Guys", "Redmond, WA 98052", "Burgers", "American"],
+  ["Woodblock", "16175 Cleveland St", "American", "American"],
+  ["Redmond's Bar & Grill", "7979 Leary Way NE", "American", "American"],
+  ["Matt's Rotisserie & Oyster Lounge", "16564 NE 74th St", "American, seafood", "American"],
+  ["BJ's Restaurant & Brewhouse", "7211 166th Ave NE", "American, pizza", "American"],
+  ["Lunchbox Laboratory", "Redmond, WA 98052", "American, burgers", "American"],
+  ["Panera Bread", "Redmond, WA 98052", "Sandwiches, soups", "American"],
+  ["Jersey Mike's", "Redmond, WA 98052", "Sandwiches", "American"],
+  ["Fatburger", "Redmond, WA 98052", "Burgers", "American"],
+
+  // Italian / Pizza
+  ["Zio Sal Ristorante", "7525 166th Ave NE", "Italian", "Italian & pizza"],
+  ["Spark Pizza", "16275 NE 85th St", "Pizza", "Italian & pizza"],
+  ["Zeeks Pizza", "Redmond, WA 98052", "Pizza", "Italian & pizza"],
+
+  // Breakfast / Cafes / Bakeries
+  ["The Original Pancake House", "7525 166th Ave NE", "Breakfast", "Breakfast & cafes"],
+  ["Village Square Cafe", "Redmond, WA 98052", "American breakfast", "Breakfast & cafes"],
+  ["Farine Bakery & Cafe", "Redmond, WA 98052", "French bakery", "Breakfast & cafes"],
+  ["The French Bakery", "7525 166th Ave NE", "French bakery", "Breakfast & cafes"],
+  ["Blazing Bagels", "Redmond, WA 98052", "Bagels", "Breakfast & cafes"],
+  ["Kitanda Espresso & Açaí", "7525 166th Ave NE", "Brazilian cafe", "Breakfast & cafes"],
+  ["Mercurys Coffee", "Redmond, WA 98052", "Coffee", "Breakfast & cafes"],
+  ["Peet's Coffee", "Redmond, WA 98052", "Coffee", "Breakfast & cafes"],
+  ["SoulFood CoffeeHouse", "Redmond, WA 98052", "Cafe", "Breakfast & cafes"],
+  ["River Trail Roasters", "Redmond, WA 98052", "Coffee", "Breakfast & cafes"],
+  ["Qamaria Coffee", "Redmond, WA 98052", "Yemeni coffee", "Breakfast & cafes"],
+
+  // Desserts / Ice Cream / Bubble Tea
+  ["Cold Stone Creamery", "7525 166th Ave NE", "Ice cream", "Dessert"],
+  ["Molly Moon's", "Redmond, WA 98052", "Ice cream", "Dessert"],
+  ["Midnight Cookie Co.", "7525 166th Ave NE", "Cookies", "Dessert"],
+  ["Pinkabella Cupcakes", "7525 166th Ave NE", "Cupcakes", "Dessert"],
+  ["FrogLegs", "7525 166th Ave NE", "Ice cream", "Dessert"],
+  ["Sharetea", "7525 166th Ave NE", "Bubble tea", "Dessert"],
+  ["Top Pot Doughnuts", "Redmond, WA 98052", "Doughnuts", "Dessert"]
+];
+
+const TYPES = [
+  { id: "food", label: "Food" },
+  { id: "fast food", label: "Fast food" },
+  { id: "dessert", label: "Dessert" },
+  { id: "drinks", label: "Drinks" }
+];
+const FAST = new Set(["Taco Time", "QDOBA", "Five Guys", "Fatburger", "Jersey Mike's", "Panera Bread", "Just Poké", "Seoul Bowl"]);
+const SWEET = new Set(["Cold Stone Creamery", "Molly Moon's", "Midnight Cookie Co.", "Pinkabella Cupcakes", "FrogLegs", "Top Pot Doughnuts", "Farine Bakery & Cafe", "The French Bakery"]);
+const DRINK = new Set(["Sharetea", "Mercurys Coffee", "Peet's Coffee", "SoulFood CoffeeHouse", "River Trail Roasters", "Qamaria Coffee", "Kitanda Espresso & Açaí"]);
+function typeOf(name, cat) {
+  if (FAST.has(name)) return "fast food";
+  if (SWEET.has(name) || cat === "Dessert") return "dessert";
+  if (DRINK.has(name)) return "drinks";
+  return "food";
+}
+DEFAULT_PLACES.forEach(p => p.push(typeOf(p[0], p[3])));
+let type = "food";
+
+const KEY = "redmond-eats-list-v1";
+let places = DEFAULT_PLACES.map(p => p.slice());
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (Array.isArray(saved) && saved.every(p => Array.isArray(p) && (p.length === 4 || p.length === 5) && p.every(x => typeof x === "string"))) {
+    places = saved.map(p => [p[0], p[1], p[2], p[3], TYPES.some(t => t.id === p[4]) ? p[4] : typeOf(p[0], p[3])]);
+  }
+} catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(places)); } catch (e) {} }
+const categories = all => [...new Set(places.filter(p => all || p[4] === type).map(p => p[3]))];
+const chipsEl = document.getElementById("chips");
+const resultEl = document.getElementById("result");
+const pickBtn = document.getElementById("pick");
+const countEl = document.getElementById("count");
+let last = null;
+let busy = false;
+
+function renderChips() {
+  const off = new Set([...chipsEl.querySelectorAll("input:not(:checked)")].map(i => i.value));
+  chipsEl.textContent = "";
+  categories().forEach(cat => {
+    const label = document.createElement("label");
+    label.className = "chip";
+    label.innerHTML = '<input type="checkbox"><span></span>';
+    const input = label.querySelector("input");
+    input.value = cat;
+    input.checked = !off.has(cat);
+    label.querySelector("span").textContent = cat;
+    input.addEventListener("change", updateCount);
+    chipsEl.appendChild(label);
+  });
+  const dl = document.getElementById("cats");
+  dl.textContent = "";
+  categories(true).forEach(cat => {
+    const o = document.createElement("option");
+    o.value = cat;
+    dl.appendChild(o);
+  });
+  updateCount();
+}
+
+function pool() {
+  const on = [...chipsEl.querySelectorAll("input:checked")].map(i => i.value);
+  return places.filter(p => p[4] === type && on.includes(p[3]));
+}
+
+function updateCount() {
+  const n = pool().length;
+  countEl.textContent = n + (n === 1 ? " place" : " places") + " in the running";
+  pickBtn.disabled = n === 0;
+}
+
+function show(place, spinning) {
+  resultEl.textContent = "";
+  const h = document.createElement("h2");
+  h.className = "name" + (spinning ? " spinning" : "");
+  h.textContent = place[0];
+  resultEl.appendChild(h);
+  if (spinning) return;
+
+  const c = document.createElement("p");
+  c.className = "cuisine";
+  c.textContent = place[2];
+  const a = document.createElement("p");
+  a.className = "address";
+  a.textContent = place[1];
+  const m = document.createElement("a");
+  m.className = "map";
+  m.textContent = "Open in Google Maps";
+  m.target = "_blank";
+  m.rel = "noopener";
+  const q = place[0] + " " + (place[1].startsWith("Redmond") ? "Redmond, WA" : place[1] + ", Redmond, WA");
+  m.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+  resultEl.append(c, a, m);
+}
+
+function choose() {
+  const p = pool();
+  if (!p.length) return null;
+  let pick;
+  do { pick = p[Math.floor(Math.random() * p.length)]; } while (p.length > 1 && pick === last);
+  return pick;
+}
+
+pickBtn.addEventListener("click", () => {
+  if (busy) return;
+  const final = choose();
+  if (!final) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  last = final;
+  if (reduce) { show(final, false); return; }
+
+  busy = true;
+  pickBtn.disabled = true;
+  setTypesDisabled(true);
+  const p = pool();
+  let i = 0;
+  const total = 14;
+  (function tick() {
+    if (i < total) {
+      show(p[Math.floor(Math.random() * p.length)], true);
+      i++;
+      setTimeout(tick, 45 + i * 14);
+    } else {
+      show(final, false);
+      busy = false;
+      pickBtn.disabled = false;
+      setTypesDisabled(false);
+      pickBtn.textContent = "Pick again";
+    }
+  })();
+});
+
+// ---- Edit the list ----
+const itemsEl = document.getElementById("items");
+const filterEl = document.getElementById("filter");
+const msgEl = document.getElementById("formmsg");
+
+function renderItems() {
+  const q = filterEl.value.trim().toLowerCase();
+  itemsEl.textContent = "";
+  places.forEach(p => {
+    if (q && !(p[0] + " " + p[2] + " " + p[3]).toLowerCase().includes(q)) return;
+    const li = document.createElement("li");
+    const info = document.createElement("div");
+    info.className = "info";
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = p[0];
+    const sub = document.createElement("span");
+    sub.className = "sub";
+    sub.textContent = p[2] + " \u2022 " + p[1] + " \u2022 " + typeLabel(p[4]);
+    info.append(nm, sub);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Remove";
+    btn.setAttribute("aria-label", "Remove " + p[0]);
+    btn.addEventListener("click", () => {
+      places = places.filter(x => x !== p);
+      if (last === p) last = null;
+      save();
+      renderChips();
+      renderItems();
+    });
+    li.append(info, btn);
+    itemsEl.appendChild(li);
+  });
+  if (!itemsEl.children.length) {
+    const li = document.createElement("li");
+    li.textContent = places.length ? "No matches." : "The list is empty. Add a place above.";
+    itemsEl.appendChild(li);
+  }
+}
+
+document.getElementById("add").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = document.getElementById("f-name").value.trim();
+  const addr = document.getElementById("f-addr").value.trim() || "Redmond, WA";
+  const cat = document.getElementById("f-cat").value.trim();
+  const cuisine = document.getElementById("f-cuisine").value.trim() || cat;
+  if (!name || !cat) return;
+  if (places.some(p => p[0].toLowerCase() === name.toLowerCase())) {
+    msgEl.textContent = name + " is already on the list.";
+    return;
+  }
+  const t = document.getElementById("f-type").value;
+  places.push([name, addr, cuisine, cat, t]);
+  save();
+  e.target.reset();
+  document.getElementById("f-type").value = type;
+  msgEl.textContent = "Added " + name + " to " + typeLabel(t) + ".";
+  renderChips();
+  renderItems();
+});
+
+filterEl.addEventListener("input", renderItems);
+
+document.getElementById("reset").addEventListener("click", () => {
+  if (!confirm("Replace the list with the original one? Your additions and removals will be lost.")) return;
+  places = DEFAULT_PLACES.map(p => p.slice());
+  last = null;
+  save();
+  renderChips();
+  renderItems();
+});
+
+// ---- Type selector ----
+const typesEl = document.getElementById("types");
+function typeLabel(id) { const t = TYPES.find(x => x.id === id); return t ? t.label : id; }
+function setTypesDisabled(b) { typesEl.querySelectorAll("input").forEach(i => { i.disabled = b; }); }
+
+TYPES.forEach(t => {
+  const label = document.createElement("label");
+  label.className = "seg";
+  label.innerHTML = '<input type="radio" name="type"><span></span>';
+  const input = label.querySelector("input");
+  input.value = t.id;
+  input.checked = t.id === type;
+  label.querySelector("span").textContent = t.label;
+  input.addEventListener("change", () => {
+    type = t.id;
+    last = null;
+    pickBtn.textContent = "Pick a place";
+    resultEl.textContent = "";
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = "Press the button to pick a place.";
+    resultEl.appendChild(p);
+    document.getElementById("f-type").value = type;
+    renderChips();
+  });
+  typesEl.appendChild(label);
+});
+
+renderChips();
+renderItems();
+</script>
+</body>
+</html>
