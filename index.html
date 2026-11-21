@@ -233,6 +233,19 @@
   .filebtn { display: inline-flex; align-items: center; cursor: pointer; }
   .import { margin-top: 1.25rem; display: grid; gap: .6rem; }
   #catalogue { margin: 1rem 0 0; color: var(--ink); font-weight: 500; }
+
+  .tools { flex-wrap: wrap; }
+  .tools #wheelBtn { flex-basis: 100%; }
+  .wheelbox { margin-bottom: 1rem; text-align: center; }
+  .wheelbox[hidden] { display: none; }
+  .wheel-title { margin: 0 0 .9rem; font-weight: 800; font-size: 1.1rem; color: var(--muted); }
+  .wheelwrap { position: relative; width: min(100%, 19rem); margin: 0 auto; }
+  #wheel { display: block; width: 100%; height: auto; border-radius: 50%; box-shadow: 0 0 0 .4rem var(--chip); }
+  .pointer { position: absolute; top: -.7rem; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: .75rem solid transparent; border-right: .75rem solid transparent; border-top: 1.4rem solid #fff; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); z-index: 2; }
+
+  .wheelacts { display: flex; gap: .5rem; justify-content: center; margin-top: 1rem; }
+  .wheelacts[hidden] { display: none; }
+  .wheelacts .small { flex: 1; max-width: 12rem; }
 </style>
 </head>
 <body class="intro">
@@ -241,6 +254,15 @@
 
   <div class="types" id="types" role="radiogroup" aria-label="Type of place"></div>
 
+  <div class="wheelbox" id="wheelbox" hidden>
+    <p class="wheel-title" id="wheelTitle">Cuisine wheel</p>
+    <div class="wheelwrap"><canvas id="wheel" width="640" height="640" role="img" aria-label="Spinning wheel"></canvas><div class="pointer" aria-hidden="true"></div></div>
+    <div class="wheelacts" id="wheelActs" hidden>
+      <button class="small ghost" type="button" id="wheelCuisineBtn">Spin cuisine again</button>
+      <button class="small ghost" type="button" id="wheelResetBtn">↺ New spin</button>
+    </div>
+  </div>
+
   <section class="result" aria-live="polite" id="result">
     <p class="empty">Press the button to pick a place.</p>
   </section>
@@ -248,6 +270,7 @@
   <button class="pick" id="pick" type="button">Pick a place</button>
 
   <div class="tools">
+    <button class="tool" id="wheelBtn" type="button" role="switch" aria-checked="false">🎡 Wheel mode: Off</button>
     <button class="tool" id="historyBtn" type="button">🕘 History</button>
     <button class="tool" id="soundBtn" type="button" aria-pressed="true">🔊 Sound on</button>
   </div>
@@ -273,10 +296,8 @@
     <p class="note" id="catalogue"></p>
     <div class="import">
       <p class="note">To load every place: get the King County "Food Establishment Inspection Data" list (data.kingcounty.gov), filter City to Redmond and Bellevue, export it as CSV, then choose the file here.</p>
-      <button class="small ghost" type="button" id="officialLoadBtn">Load official King County list</button>
       <label class="small ghost filebtn">Import CSV<input type="file" id="csvFile" accept=".csv,text/csv" hidden></label>
       <p class="note" id="importMsg" role="status"></p>
-      <p class="note">Official source: King County food-establishment inspections (2021–present). This is a public-health inventory, not a guaranteed complete directory of every currently open business; some newly opened or uninspected places may be missing, and records should be checked before visiting.</p>
     </div>
     <input type="search" id="filter" placeholder="Search the list" aria-label="Search the list">
     <ul id="items"></ul>
@@ -408,8 +429,7 @@ const TYPES = [
   { id: "food", label: "Food" },
   { id: "fast food", label: "Fast food" },
   { id: "dessert", label: "Dessert" },
-  { id: "drinks", label: "Drinks" },
-  { id: "everything", label: "Everything" }
+  { id: "drinks", label: "Drinks" }
 ];
 const FAST = new Set(["Taco Time", "QDOBA", "Five Guys", "Fatburger", "Jersey Mike's", "Panera Bread", "Just Poké", "Seoul Bowl"]);
 const SWEET = new Set(["Cold Stone Creamery", "Molly Moon's", "Midnight Cookie Co.", "Pinkabella Cupcakes", "FrogLegs", "Top Pot Doughnuts", "Farine Bakery & Cafe", "The French Bakery"]);
@@ -465,98 +485,6 @@ DEFAULT_PLACES.push(
   ["Fern Thai", "Bellevue, WA", "Thai", "Thai"],
   ["Monsoon Bellevue", "Bellevue, WA", "Vietnamese", "Vietnamese"]
 );
-
-// Expanded fast-food, boba, coffee, tea, smoothie and dessert-drink options.
-// Street addresses are included where located in public listings; otherwise the city is shown.
-DEFAULT_PLACES.push(
-  // Redmond fast food / fast casual
-  ["Taco Bell (Redmond Way)", "16989 Redmond Way", "Mexican fast food, tacos", "Mexican"],
-  ["Taco Bell (148th Ave NE)", "1960 148th Ave NE", "Mexican fast food, tacos", "Mexican"],
-  ["McDonald's (Novelty Hill)", "23545 NE Novelty Hill Rd", "Burgers, fries, fast food", "American"],
-  ["McDonald's (Redmond)", "Redmond, WA", "Burgers, fries, fast food", "American"],
-  ["Wendy's (Redmond)", "15945 Redmond Way", "Burgers, fries, fast food", "American"],
-  ["Jack in the Box (Redmond)", "Redmond, WA", "Burgers, tacos, fast food", "American"],
-  ["KFC (Redmond)", "Redmond, WA", "Fried chicken, fast food", "American"],
-  ["Panda Express (Redmond)", "Redmond, WA", "Chinese-American fast food", "Chinese"],
-  ["Chipotle (Redmond)", "Redmond, WA", "Mexican fast casual", "Mexican"],
-  ["Jimmy John's (Redmond)", "Redmond, WA", "Sandwiches, fast food", "American"],
-  ["Dairy Queen (Redmond)", "Redmond, WA", "Burgers, shakes, ice cream", "American"],
-  // Bellevue fast food / fast casual
-  ["McDonald's (NE 20th St)", "13841 NE 20th St", "Burgers, fries, fast food", "American"],
-  ["McDonald's (156th Ave NE)", "1401 156th Ave NE", "Burgers, fries, fast food", "American"],
-  ["McDonald's (Factoria)", "4056 Factoria Blvd SE", "Burgers, fries, fast food", "American"],
-  ["McDonald's (156th Ave SE)", "3239 156th Ave SE", "Burgers, fries, fast food", "American"],
-  ["Burger King (NE 8th St)", "11723 NE 8th St", "Burgers, fries, fast food", "American"],
-  ["Burger King (Factoria)", "4015 Factoria Blvd SE", "Burgers, fries, fast food", "American"],
-  ["Wendy's (Bellevue Way)", "940 Bellevue Way NE", "Burgers, fries, fast food", "American"],
-  ["Taco Bell (Factoria)", "3705 128th Ave SE", "Mexican fast food, tacos", "Mexican"],
-  ["Chick-fil-A (Bellevue)", "Bellevue, WA", "Chicken sandwiches, fast food", "American"],
-  ["KFC (Bellevue)", "Bellevue, WA", "Fried chicken, fast food", "American"],
-  ["Jack in the Box (Bellevue)", "Bellevue, WA", "Burgers, tacos, fast food", "American"],
-  ["Panda Express (Bellevue)", "Bellevue, WA", "Chinese-American fast food", "Chinese"],
-  ["Jamba (Bellevue)", "Bellevue, WA", "Smoothies, juice", "Breakfast & cafes"],
-  // Redmond boba, tea, coffee and specialty drinks
-  ["Matcha Magic Redmond", "7705 168th Ave NE, Ste 110", "Matcha, tea drinks", "Breakfast & cafes"],
-  ["The Screaming Parrots Cafe", "16095 Cleveland St, Ste 110", "Desserts, tea, specialty drinks", "Breakfast & cafes"],
-  ["LUMI Dessert Cafe", "15350 NE Bel-Red Rd, Ste 110", "Dessert drinks, cafe", "Dessert"],
-  ["Downpour Coffee and Sandwich Bar", "13200 Old Redmond Rd, Ste 150", "Coffee, cafe", "Breakfast & cafes"],
-  ["Caffe Lusso Roastery", "17725 NE 65th St, Ste A140", "Coffee, espresso", "Breakfast & cafes"],
-  ["Cypress Coffee Company", "22310 NE Marketplace Dr, Ste 102", "Coffee, espresso", "Breakfast & cafes"],
-  ["Doppio Cafe and Creperie", "8296 160th Ave NE, Ste 106", "Coffee, crepes", "Breakfast & cafes"],
-  ["Sunrise Donuts & Espresso", "7299 W Lake Sammamish Pkwy NE", "Coffee, espresso, donuts", "Breakfast & cafes"],
-  ["Boon Boona Coffee (Redmond)", "15835 NE 36th St", "Coffee", "Breakfast & cafes"],
-  ["DOTE To-Go", "15327 NE 90th St, Ste 160", "Coffee, drinks", "Breakfast & cafes"],
-  ["Jack Sprat", "2808 Calder Ave NE", "Coffee, cafe", "Breakfast & cafes"],
-  ["Ummah Coffee", "17550 NE 67th Ct, Ste 207", "Coffee", "Breakfast & cafes"],
-  ["Victor's Celtic Coffee & Roasters", "7993 Gilman St", "Coffee, espresso", "Breakfast & cafes"],
-  ["Sammamish Point Espresso", "18065 NE", "Coffee, espresso", "Breakfast & cafes"],
-  // Bellevue boba, tea, coffee and specialty drinks
-  ["Young Cafe", "667 156th Ave SE", "Boba, milk tea", "Breakfast & cafes"],
-  ["Happy Lemon (Bellevue)", "1031 Bellevue Square", "Boba, fruit tea", "Breakfast & cafes"],
-  ["Drip Tea", "575 Bellevue Square", "Boba, tea", "Breakfast & cafes"],
-  ["Mai Chi Lin", "14603 NE 20th St, Ste C-06", "Boba, milk tea", "Breakfast & cafes"],
-  ["Mi Tea", "575 Bellevue Square", "Cheese tea, milk tea", "Breakfast & cafes"],
-  ["Ice Monster", "1020 Bellevue Square", "Shaved ice, tea drinks", "Dessert"],
-  ["Timeless Tea", "14320 NE 20th St, Ste D", "Boba, tea", "Breakfast & cafes"],
-  ["Coffeeholic House", "10000 Main St, Ste 103", "Vietnamese coffee", "Breakfast & cafes"],
-  ["TRÀ Viet Coffee & Tea", "10435 NE 4th St", "Vietnamese coffee, tea", "Breakfast & cafes"],
-  ["Yifang Taiwan Fruit Tea", "11020 NE 6th St, Ste 192", "Fruit tea, boba", "Breakfast & cafes"],
-  ["Mr. Green Bubble", "4056 Factoria Mall SE", "Boba, milk tea", "Breakfast & cafes"],
-  ["Sharetea (Bellevue)", "1112 110th Ave NE, Ste 107", "Boba, milk tea", "Breakfast & cafes"],
-  ["Boba Express", "15600 NE 8th St, Ste F13", "Boba, milk tea", "Breakfast & cafes"],
-  ["CoCo Fresh Tea & Juice", "11028 NE 8th St", "Boba, fruit tea", "Breakfast & cafes"],
-  ["CHICHA San Chen", "188 Bellevue Square", "Taiwanese tea, boba", "Breakfast & cafes"],
-  ["Meet Fresh", "15552 Lake Hills Blvd, Ste F5", "Taiwanese desserts, drinks", "Dessert"],
-  ["Daboba", "12668 SE 38th St", "Boba, milk tea", "Breakfast & cafes"],
-  ["Chamei Matcha", "400 Bellevue Square, Ste 188", "Matcha, tea drinks", "Breakfast & cafes"],
-  ["TeaByDo", "1075 Bellevue Way NE", "Fruit tea, milk tea, smoothies", "Breakfast & cafes"],
-  ["HeChaLou Tea House & Jelly", "1351 121st Ave NE", "Tea, boba, tea jelly", "Breakfast & cafes"],
-  ["Omo Thai Tea", "1351 121st Ave NE", "Thai tea, soft serve", "Dessert"],
-  ["HEYTEA", "700 110th Ave NE, Ste 192", "Chinese tea, fruit tea", "Breakfast & cafes"],
-  ["Molly Tea Bellevue", "Bellevue, WA", "Tea, milk tea", "Breakfast & cafes"],
-  ["Don't Yell at Me", "Bellevue, WA", "Taiwanese boba, tea", "Breakfast & cafes"],
-  ["Over The Rainbow Tea Bar", "3900 Factoria Blvd SE, Ste H", "Boba, smoothies, bubble waffles", "Breakfast & cafes"],
-  ["Chatime Bellevue", "15546 Lake Hills Blvd", "Boba, milk tea", "Breakfast & cafes"],
-  ["Mr. Wish Bellevue", "14509 NE 20th St", "Fruit tea, boba", "Breakfast & cafes"],
-  ["The Whale Tea Bellevue", "103 Bellevue Way NE, Ste 2", "Boba, milk tea", "Breakfast & cafes"],
-  ["Choo Tea", "155 108th Ave NE, Ste 101", "Tea, boba", "Breakfast & cafes"],
-  ["CILO Lab", "550 106th Ave NE, Ste 150", "Tea, gelato, specialty drinks", "Dessert"],
-  ["Dote Coffee Bar (Bellevue)", "500 Bellevue Way NE, 2nd Floor", "Coffee, chocolate drinks", "Breakfast & cafes"],
-  ["Bellden Cafe", "10527 Main St", "Coffee, cafe", "Breakfast & cafes"],
-  ["Caffe Ladro (Bellevue)", "333 108th Ave NE", "Coffee, espresso", "Breakfast & cafes"],
-  ["Fonté Coffee", "10500 NE 8th St", "Coffee, espresso", "Breakfast & cafes"],
-  ["Woods Coffee", "Bellevue, WA", "Coffee, espresso", "Breakfast & cafes"],
-  ["Story Coffee", "Bellevue, WA", "Coffee, cafe", "Breakfast & cafes"],
-  ["Café Hagen", "777 108th Ave NE", "Coffee, cafe", "Breakfast & cafes"],
-  ["Paris Baguette (Bellevue)", "931 108th Ave NE", "Coffee, bakery, drinks", "Breakfast & cafes"],
-  ["Nana's Green Tea", "Bellevue, WA", "Japanese tea, matcha desserts", "Dessert"],
-  ["Fran's Chocolates", "10036 Main St", "Drinking chocolate", "Dessert"]
-);
-["McDonald's (Novelty Hill)", "McDonald's (Redmond)", "Wendy's (Redmond)", "Jack in the Box (Redmond)", "KFC (Redmond)", "Panda Express (Redmond)", "Chipotle (Redmond)", "Jimmy John's (Redmond)", "Dairy Queen (Redmond)", "McDonald's (NE 20th St)", "McDonald's (156th Ave NE)", "McDonald's (Factoria)", "McDonald's (156th Ave SE)", "Burger King (NE 8th St)", "Burger King (Factoria)", "Wendy's (Bellevue Way)", "Taco Bell (Factoria)", "Chick-fil-A (Bellevue)", "KFC (Bellevue)", "Jack in the Box (Bellevue)", "Panda Express (Bellevue)"].forEach(n => FAST.add(n));
-["Jamba (Bellevue)"].forEach(n => DRINK.add(n));
-["Matcha Magic Redmond", "The Screaming Parrots Cafe", "Downpour Coffee and Sandwich Bar", "Caffe Lusso Roastery", "Cypress Coffee Company", "Doppio Cafe and Creperie", "Sunrise Donuts & Espresso", "Boon Boona Coffee (Redmond)", "DOTE To-Go", "Jack Sprat", "Ummah Coffee", "Victor's Celtic Coffee & Roasters", "Sammamish Point Espresso", "Young Cafe", "Happy Lemon (Bellevue)", "Drip Tea", "Mai Chi Lin", "Mi Tea", "Timeless Tea", "Coffeeholic House", "TRÀ Viet Coffee & Tea", "Yifang Taiwan Fruit Tea", "Mr. Green Bubble", "Sharetea (Bellevue)", "Boba Express", "CoCo Fresh Tea & Juice", "CHICHA San Chen", "Daboba", "Chamei Matcha", "TeaByDo", "HeChaLou Tea House & Jelly", "HEYTEA", "Molly Tea Bellevue", "Don't Yell at Me", "Over The Rainbow Tea Bar", "Chatime Bellevue", "Mr. Wish Bellevue", "The Whale Tea Bellevue", "Choo Tea", "Dote Coffee Bar (Bellevue)", "Bellden Cafe", "Caffe Ladro (Bellevue)", "Fonté Coffee", "Woods Coffee", "Story Coffee", "Café Hagen", "Paris Baguette (Bellevue)"].forEach(n => DRINK.add(n));
-["Ice Monster", "Meet Fresh", "Omo Thai Tea", "CILO Lab", "Nana's Green Tea", "Fran's Chocolates"].forEach(n => SWEET.add(n));
-["Young Cafe", "Happy Lemon (Bellevue)", "Drip Tea", "Mai Chi Lin", "Mi Tea", "Ice Monster", "Timeless Tea", "Coffeeholic House", "TRÀ Viet Coffee & Tea", "Yifang Taiwan Fruit Tea", "Mr. Green Bubble", "Sharetea (Bellevue)", "Boba Express", "CoCo Fresh Tea & Juice", "CHICHA San Chen", "Meet Fresh", "Daboba", "Chamei Matcha", "TeaByDo", "HeChaLou Tea House & Jelly", "Omo Thai Tea", "HEYTEA", "Molly Tea Bellevue", "Don't Yell at Me", "Over The Rainbow Tea Bar", "Chatime Bellevue", "Mr. Wish Bellevue", "The Whale Tea Bellevue", "Choo Tea", "CILO Lab", "Dote Coffee Bar (Bellevue)", "Bellden Cafe", "Caffe Ladro (Bellevue)", "Fonté Coffee", "Woods Coffee", "Story Coffee", "Café Hagen", "Paris Baguette (Bellevue)", "Nana's Green Tea", "Fran's Chocolates"].forEach(n => BELLEVUE.add(n));
 DEFAULT_PLACES.forEach(p => p.push(typeOf(p[0], p[3])));
 
 // Rough average price of one item (a dish, plate, drink or scoop), in dollars.
@@ -639,20 +567,6 @@ try {
   }
 } catch (e) {}
 function save() { try { localStorage.setItem(KEY, JSON.stringify(places)); } catch (e) {} }
-// One-time migration: add this expanded starter set to existing saved catalogues without overwriting user edits.
-const EXPANSION_KEY = "redmond-eats-fastfood-drinks-expansion-v1";
-try {
-  if (!localStorage.getItem(EXPANSION_KEY)) {
-    const norm = v => String(v || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const known = new Set(places.map(x => norm(x[0]) + "|" + norm(x[1]) + "|" + norm(x[6])));
-    for (const p of DEFAULT_PLACES) {
-      const k = norm(p[0]) + "|" + norm(p[1]) + "|" + norm(p[6]);
-      if (!known.has(k)) { places.push(p.slice()); known.add(k); }
-    }
-    localStorage.setItem(EXPANSION_KEY, "1");
-    save();
-  }
-} catch (e) {}
 const RKEY = "redmond-eats-ratings-v1";
 let ratings = Object.create(null);
 try {
@@ -708,13 +622,14 @@ function blip(freq, dur, vol, wave, delay) {
 function tickSound(i, total) { blip(520 + (i / total) * 520, 0.05, 0.2, "triangle"); }
 function dingSound() { blip(880, 0.3, 0.22, "sine"); blip(1318.5, 0.5, 0.2, "sine", 0.11); }
 
-const categories = all => [...new Set(places.filter(p => all || type === "everything" || p[4] === type).map(p => p[3]))];
+const categories = all => [...new Set(places.filter(p => all || p[4] === type).map(p => p[3]))];
 const chipsEl = document.getElementById("chips");
 const resultEl = document.getElementById("result");
 const pickBtn = document.getElementById("pick");
 const countEl = document.getElementById("count");
 let last = null;
 let busy = false;
+let wheelMode = false;
 
 function renderChips() {
   const off = new Set([...chipsEl.querySelectorAll("input:not(:checked)")].map(i => i.value));
@@ -778,7 +693,7 @@ ALLERGEN_OPTS.forEach(([v, l]) => addChip(avoidEl, v, l, savedF.avoid.includes(v
 function pool() {
   const cats = checkedIn(chipsEl), areas = checkedIn(areaEl), need = checkedIn(dietEl), avoid = checkedIn(avoidEl);
   return places.filter(p => {
-    if ((type !== "everything" && p[4] !== type) || !cats.includes(p[3]) || !areas.includes(p[6])) return false;
+    if (p[4] !== type || !cats.includes(p[3]) || !areas.includes(p[6])) return false;
     if (!need.length && !avoid.length) return true;
     const d = dietOf(p);
     return need.every(x => d.s.has(x)) && (!avoid.length || (d.known && !avoid.some(x => d.s.has(x))));
@@ -790,6 +705,7 @@ function updateCount() {
   const n = pool().length;
   countEl.textContent = n + (n === 1 ? " place" : " places") + " in the running" + (n === 0 ? ". Try loosening a filter." : "");
   pickBtn.disabled = n === 0;
+  if (wheelMode && !busy) drawWheelPreview();
   const k = checkedIn(dietEl).length + checkedIn(avoidEl).length +
     (chipsEl.querySelector("input:not(:checked)") ? 1 : 0) + (areaEl.querySelector("input:not(:checked)") ? 1 : 0);
   document.getElementById("filterBtn").textContent = "\u2630 Filters" + (k ? " (" + k + ")" : "");
@@ -1025,6 +941,7 @@ function choose() {
 
 pickBtn.addEventListener("click", () => {
   if (busy) return;
+  if (wheelMode) { wheelPick(); return; }
   const final = choose();
   if (!final) return;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1049,7 +966,7 @@ pickBtn.addEventListener("click", () => {
       busy = false;
       pickBtn.disabled = false;
       setTypesDisabled(false);
-      pickBtn.textContent = "Pick again";
+      pickBtn.textContent = pickLabel(true);
     }
   })();
 });
@@ -1154,7 +1071,7 @@ TYPES.forEach(t => {
   input.addEventListener("change", () => {
     type = t.id;
     last = null;
-    pickBtn.textContent = "Pick a place";
+    pickBtn.textContent = pickLabel(false);
     resultEl.textContent = "";
   resultEl.className = "result";
     const p = document.createElement("p");
@@ -1192,7 +1109,7 @@ function showFromHistory(place) {
   }
   last = place;
   show(place, false);
-  pickBtn.textContent = "Pick again";
+  pickBtn.textContent = pickLabel(true);
   resultEl.scrollIntoView({ block: "center" });
 }
 function renderHistory() {
@@ -1352,112 +1269,146 @@ document.getElementById("csvFile").addEventListener("change", e => {
   e.target.value = "";
 });
 
-// ---- Load current public food-establishment records from King County ----
-function guessedCategory(name, classification) {
-  const n = name + " " + (classification || "");
-  if (/coffee|espresso|tea|boba|bubble|juice|smoothie|brewery|roast/i.test(n)) return "Breakfast & cafes";
-  if (/bakery|donut|doughnut|ice cream|gelato|cookie|cupcake|dessert|creamery|yogurt|candy|chocolate|cake/i.test(n)) return "Dessert";
-  if (/sushi|ramen|teriyaki|izakaya|japanese|yakitori/i.test(n)) return "Japanese";
-  if (/korean|kbbq|bibimbap/i.test(n)) return "Korean";
-  if (/chinese|dumpling|dim sum|taiwanese|szechuan|sichuan/i.test(n)) return "Chinese";
-  if (/indian|biryani|curry|tandoor/i.test(n)) return "Indian";
-  if (/mexican|taqueria|taco|burrito|cantina/i.test(n)) return "Mexican";
-  if (/thai/i.test(n)) return "Thai";
-  if (/vietnamese|pho|banh mi/i.test(n)) return "Vietnamese";
-  if (/pizza|pizzeria|italian|pasta/i.test(n)) return "Italian & pizza";
-  if (/mediterranean|shawarma|falafel|lebanese/i.test(n)) return "Mediterranean";
-  if (/burger|grill|steak|american|diner|bar & grill/i.test(n)) return "American";
-  if (/restaurant|cafe|kitchen|food|eatery|deli|sandwich/i.test(n)) return "American";
-  return "Other";
-}
-function looksLikeNonPublicFoodSite(name, classification) {
-  const s = (name + " " + (classification || "")).toLowerCase();
-  return /(school|elementary|middle school|high school|university|college|hospital|nursing home|correctional|prison|jail|childcare|daycare|assisted living|senior living|food bank|commissary|warehouse|manufactur|distribution center|grocery|supermarket|employee cafeteria|corporate cafeteria|church kitchen|temple kitchen|mosque kitchen|synagogue kitchen)/.test(s);
-}
-function normPlacePart(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
-function loadOfficialList() {
-  const btn = document.getElementById("officialLoadBtn");
-  const msg = document.getElementById("importMsg");
-  btn.disabled = true;
-  msg.textContent = "Connecting to King County's public food-establishment data...";
-  (async () => {
-    const params = new URLSearchParams({
-      "$select": "name,address,city,classification,inspection_closed_business",
-      "$where": "city in ('Redmond','Bellevue')",
-      "$limit": "50000",
-      "$order": "city,name,address"
-    });
-    const url = "https://data.kingcounty.gov/resource/r878-4sxa.json?" + params.toString();
-    const response = await fetch(url, { headers: { "Accept": "application/json" } });
-    if (!response.ok) throw new Error("King County returned HTTP " + response.status);
-    const rows = await response.json();
-    if (!Array.isArray(rows)) throw new Error("Unexpected data format");
+// ---- Wheel mode: spin for a cuisine, then spin for a restaurant ----
+const WKEY = "redmond-eats-wheel-v1";
+const wheelBox = document.getElementById("wheelbox");
+const wheelBtn = document.getElementById("wheelBtn");
+const wheelTitle = document.getElementById("wheelTitle");
+const WC = [["#ff7a00", "#0a0a0a"], ["#2b2b2b", "#f5f5f5"], ["#ffa24d", "#0a0a0a"], ["#454545", "#f5f5f5"]];
+const TAU = Math.PI * 2;
+const mod = x => ((x % TAU) + TAU) % TAU;
+let wheelItems = [], wheelRot = 0;
 
-    const known = new Set();
-    const genericExisting = new Map();
-    places.forEach((p, i) => {
-      const area = p[6] || "Redmond";
-      known.add(normPlacePart(p[0]) + "|" + normPlacePart(p[1]) + "|" + normPlacePart(area));
-      const addrNorm = normPlacePart(p[1]);
-      const areaNorm = normPlacePart(area);
-      if (addrNorm === areaNorm || (addrNorm.startsWith(areaNorm) && addrNorm.length <= areaNorm.length + 7)) {
-        genericExisting.set(normPlacePart(p[0]) + "|" + areaNorm, i);
-      }
-    });
-    const grouped = new Map();
-    for (const r of rows) {
-      const city = String(r.city || "").trim().toLowerCase();
-      if (city !== "redmond" && city !== "bellevue") continue;
-      const name = String(r.name || "").trim().replace(/\s+/g, " ");
-      const address = String(r.address || "").trim().replace(/\s+/g, " ");
-      const classification = String(r.classification || "").trim();
-      if (!name || !address) continue;
-      const key = normPlacePart(name) + "|" + normPlacePart(address) + "|" + city;
-      const closed = ["true", "yes", "1", "closed"].includes(String(r.inspection_closed_business || "").trim().toLowerCase());
-      if (!grouped.has(key)) grouped.set(key, { name, address, city, classification, closed });
-      else if (closed) grouped.get(key).closed = true;
-    }
-
-    let added = 0, updated = 0, skipped = 0;
-    const sorted = [...grouped.values()].filter(r => !r.closed && !looksLikeNonPublicFoodSite(r.name, r.classification)).sort((a,b) => a.city.localeCompare(b.city) || a.name.localeCompare(b.name));
-    for (const r of sorted) {
-      const area = r.city === "redmond" ? "Redmond" : "Bellevue";
-      const key = normPlacePart(r.name) + "|" + normPlacePart(r.address) + "|" + normPlacePart(area);
-      if (known.has(key)) { skipped++; continue; }
-      const genericKey = normPlacePart(r.name) + "|" + normPlacePart(area);
-      const genericIndex = genericExisting.get(genericKey);
-      const category = guessedCategory(r.name, r.classification);
-      const type = guessType(r.name);
-      const cuisine = category === "Other" ? (r.classification || "Food establishment") : category;
-      if (genericIndex !== undefined) {
-        const existing = places[genericIndex];
-        existing[1] = r.address;
-        existing[2] = cuisine;
-        existing[3] = category;
-        existing[4] = type;
-        existing[6] = area;
-        known.add(key);
-        genericExisting.delete(genericKey);
-        updated++;
-        continue;
-      }
-      const sameName = places.some(p => normPlacePart(p[0]) === normPlacePart(r.name) && p[6] === area);
-      const displayName = sameName ? r.name + " (" + r.address + ")" : r.name;
-      places.push([displayName, r.address, cuisine, category, type, null, area, null]);
-      known.add(key);
-      added++;
-    }
-    save();
-    renderChips();
-    renderItems();
-    const redmond = places.filter(p => p[6] === "Redmond").length;
-    const bellevue = places.filter(p => p[6] === "Bellevue").length;
-    msg.textContent = "King County import complete: " + added + " new places, " + updated + " existing entries updated, " + skipped + " already listed. Catalogue now has " + redmond + " Redmond and " + bellevue + " Bellevue entries (" + places.length + " total).";
-  })().catch(err => {
-    msg.textContent = "Could not load the live King County list: " + err.message + ". You can still import a CSV instead.";
-  }).finally(() => { btn.disabled = false; });
+const WS = { stage: "idle", cat: null, shown: [], total: 0 };   // idle -> cuisine landed -> restaurant landed
+const wheelActs = document.getElementById("wheelActs");
+function pickLabel(again) {
+  if (!wheelMode) return again ? "Pick again" : "Pick a place";
+  return WS.stage === "idle" ? "Spin the wheel" : WS.stage === "cuisine" ? "Choose restaurant" : "Spin again";
 }
-document.getElementById("officialLoadBtn").addEventListener("click", loadOfficialList);
+function syncWheelUI() {
+  pickBtn.textContent = pickLabel(false);
+  wheelActs.hidden = !(wheelMode && WS.stage !== "idle");
+}
+function clip(t) { return t.length > 17 ? t.slice(0, 16) + "\u2026" : t; }
+function drawWheel() {
+  const cv = document.getElementById("wheel"), c = cv.getContext("2d"), W = cv.width, R = W / 2, n = wheelItems.length;
+  c.clearRect(0, 0, W, W);
+  if (!n) {
+    c.beginPath(); c.arc(R, R, R - 4, 0, TAU); c.fillStyle = "#262626"; c.fill();
+    c.fillStyle = "#a3a3a3"; c.textAlign = "center"; c.font = "800 " + Math.round(W * 0.05) + "px Arial, sans-serif";
+    c.fillText("No places match", R, R);
+    return;
+  }
+  const seg = TAU / n;
+  for (let i = 0; i < n; i++) {
+    let k = i % 4;
+    if (i === n - 1 && n > 1 && k === 0) k = 2;
+    const a0 = wheelRot + i * seg;
+    c.beginPath(); c.moveTo(R, R); c.arc(R, R, R - 4, a0, a0 + seg); c.closePath();
+    c.fillStyle = WC[k][0]; c.fill();
+    c.save(); c.translate(R, R); c.rotate(a0 + seg / 2);
+    c.fillStyle = WC[k][1]; c.textAlign = "right"; c.textBaseline = "middle";
+    c.font = "800 " + Math.round(W * 0.045) + "px Arial, sans-serif";
+    c.fillText(clip(wheelItems[i]), R - 26, 0);
+    c.restore();
+  }
+  c.beginPath(); c.arc(R, R, W * 0.05, 0, TAU); c.fillStyle = "#0a0a0a"; c.fill();
+}
+function drawWheelPreview() {
+  WS.stage = "idle"; WS.cat = null; WS.shown = [];
+  wheelItems = [...new Set(pool().map(x => x[3]))];
+  wheelTitle.textContent = "Cuisine wheel";
+  drawWheel();
+  syncWheelUI();
+}
+function spinWheel(items, w) {
+  wheelItems = items;
+  const n = items.length, seg = TAU / n;
+  const target = mod(1.5 * Math.PI - (w + 0.5) * seg + (Math.random() - 0.5) * seg * 0.7);
+  const start = wheelRot, delta = mod(target - start) + TAU * 5, dur = 3400;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    wheelRot = start + delta; drawWheel(); return Promise.resolve();
+  }
+  return new Promise(res => {
+    let lastIdx = -1;
+    const t0 = performance.now();
+    (function frame(now) {
+      const t = Math.min(1, (now - t0) / dur);
+      wheelRot = start + delta * (1 - Math.pow(1 - t, 3));
+      drawWheel();
+      const idx = Math.floor(mod(1.5 * Math.PI - wheelRot) / seg);
+      if (idx !== lastIdx) { if (lastIdx !== -1) tickSound(idx % 12, 12); lastIdx = idx; }
+      if (t < 1) requestAnimationFrame(frame); else { wheelRot = mod(wheelRot); res(); }
+    })(t0);
+  });
+}
+const pause = ms => new Promise(r => setTimeout(r, ms));
+function promptCard(text) {
+  resultEl.className = "result";
+  resultEl.textContent = "";
+  const q = document.createElement("p");
+  q.className = "empty";
+  q.textContent = text;
+  resultEl.appendChild(q);
+}
+async function wheelPick(forceCuisine) {
+  const p = pool();
+  if (!p.length || busy) return;
+  busy = true;
+  pickBtn.disabled = true;
+  setTypesDisabled(true);
+  wheelActs.querySelectorAll("button").forEach(b => { b.disabled = true; });
+  try {
+    if (forceCuisine || WS.stage === "idle") {
+      const cats = [...new Set(p.map(x => x[3]))];
+      const cat = cats[Math.floor(Math.random() * cats.length)];
+      wheelTitle.textContent = "Spin 1: cuisine";
+      await spinWheel(cats, cats.indexOf(cat));
+      await pause(400);
+      const cands = p.filter(x => x[3] === cat);
+      WS.stage = "cuisine"; WS.cat = cat; WS.total = cands.length;
+      WS.shown = cands.length > 12 ? cands.slice().sort(() => Math.random() - 0.5).slice(0, 12) : cands;
+      wheelTitle.textContent = cat + " \u2192 now choose a restaurant";
+      promptCard(cat + "! Tap \u201CChoose restaurant\u201D to pick a place.");
+      dingSound();
+    } else {
+      const final = WS.shown[Math.floor(Math.random() * WS.shown.length)];
+      wheelTitle.textContent = "Spin 2: " + WS.cat + (WS.total > 12 ? " (12 of " + WS.total + ")" : "");
+      await spinWheel(WS.shown.map(x => x[0]), WS.shown.indexOf(final));
+      await pause(500);
+      WS.stage = "restaurant";
+      last = final;
+      show(final, false);
+      dingSound();
+      wheelTitle.textContent = WS.cat + " \u2192 " + final[0];
+    }
+  } finally {
+    busy = false;
+    pickBtn.disabled = false;
+    setTypesDisabled(false);
+    wheelActs.querySelectorAll("button").forEach(b => { b.disabled = false; });
+    syncWheelUI();
+  }
+}
+function resetWheel() {
+  if (busy) return;
+  promptCard("Press the button to pick a place.");
+  drawWheelPreview();
+}
+document.getElementById("wheelCuisineBtn").addEventListener("click", () => wheelPick(true));
+document.getElementById("wheelResetBtn").addEventListener("click", resetWheel);
+function setWheelMode(on) {
+  wheelMode = on;
+  wheelBox.hidden = !on;
+  wheelBtn.setAttribute("aria-checked", String(on));
+  wheelBtn.textContent = "\u{1F3A1} Wheel mode: " + (on ? "On" : "Off");
+  if (!on) { WS.stage = "idle"; WS.cat = null; WS.shown = []; }
+  syncWheelUI();
+  try { localStorage.setItem(WKEY, on ? "on" : "off"); } catch (e) {}
+  if (on) drawWheelPreview();
+}
+wheelBtn.addEventListener("click", () => { if (!busy) setWheelMode(!wheelMode); });
+try { if (localStorage.getItem(WKEY) === "on") setWheelMode(true); } catch (e) {}
 
 // ---- Filter drawer ----
 const filterDlg = document.getElementById("filterDlg");
